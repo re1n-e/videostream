@@ -36,14 +36,12 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 
 	fmt.Println("uploading thumbnail for video", videoID, "by user", userID)
 
-	// Parse multipart form (10 MB max memory)
 	const maxMemory = 10 << 20
 	if err := r.ParseMultipartForm(maxMemory); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid multipart form", err)
 		return
 	}
 
-	// Retrieve the file
 	file, header, err := r.FormFile("thumbnail")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Missing thumbnail file", err)
@@ -64,20 +62,17 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Retrieve video metadata
 	video, err := cfg.db.GetVideo(videoID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to retrieve video", err)
 		return
 	}
 
-	// Validate owner
 	if video.UserID != userID {
 		respondWithError(w, http.StatusUnauthorized, "Unauthorized user", nil)
 		return
 	}
 
-	// Build final file path
 	ext := "jpg"
 	if mediaType == "image/png" {
 		ext = "png"
@@ -92,7 +87,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 
 	imagePath := filepath.Join(cfg.assetsRoot, fmt.Sprintf("%s.%s", byte_path_str, ext))
 
-	// Create file on disk
 	outFile, err := os.Create(imagePath)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to create file", err)
@@ -100,13 +94,11 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 	defer outFile.Close()
 
-	// Save the file
 	if _, err := io.Copy(outFile, file); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to save thumbnail", err)
 		return
 	}
 
-	// Update its URL
 	thumbnailURL := fmt.Sprintf("http://localhost:8091/assets/%s.%s", byte_path_str, ext)
 	video.ThumbnailURL = &thumbnailURL
 

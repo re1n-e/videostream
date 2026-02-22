@@ -20,17 +20,12 @@ type apiConfig struct {
 	platform         string
 	filepathRoot     string
 	assetsRoot       string
+	s3Client         *s3.Client
 	s3Bucket         string
 	s3Region         string
 	s3CfDistribution string
 	port             string
-	s3Client         *s3.Client
 }
-
-//	type thumbnail struct {
-//		data      []byte
-//		mediaType string
-//	}
 
 func main() {
 	godotenv.Load(".env")
@@ -85,13 +80,15 @@ func main() {
 		log.Fatal("PORT environment variable is not set")
 	}
 
-	awsConfig, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(s3Region))
+	s3Cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(
+		s3Region,
+	))
 
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
 
-	client := s3.NewFromConfig(awsConfig)
+	s3Client := s3.NewFromConfig(s3Cfg)
 
 	cfg := apiConfig{
 		db:               db,
@@ -103,7 +100,7 @@ func main() {
 		s3Region:         s3Region,
 		s3CfDistribution: s3CfDistribution,
 		port:             port,
-		s3Client:         client,
+		s3Client:         s3Client,
 	}
 
 	err = cfg.ensureAssetsDir()

@@ -2,19 +2,15 @@ package main
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -106,15 +102,8 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		directory = "other"
 	}
 
-	assetPath := getAssetPath(mediaType)
-	key := path.Join(directory, assetPath)
-	u, err := url.Parse(cfg.s3CfDistribution)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "failed to parse cdn url", err)
-		return
-	}
-	u.Path = path.Join(u.Path, key)
-	url := u.String()
+	key := getAssetPath(mediaType)
+	key = path.Join(directory, key)
 
 	processedFilePath, err := processVideoForFastStart(tempFile.Name())
 	if err != nil {
@@ -141,8 +130,8 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	url := fmt.Sprintf("%s/%s", cfg.s3CfDistribution, key)
 	video.VideoURL = &url
-	println(url)
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
@@ -150,26 +139,6 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 
 	respondWithJSON(w, http.StatusOK, video)
-}
-
-func getAssetPath(mediaType string) string {
-	base := make([]byte, 32)
-	_, err := rand.Read(base)
-	if err != nil {
-		panic("failed to generate random bytes")
-	}
-	id := base64.RawURLEncoding.EncodeToString(base)
-
-	ext := mediaTypeToExt(mediaType)
-	return fmt.Sprintf("%s%s", id, ext)
-}
-
-func mediaTypeToExt(mediaType string) string {
-	parts := strings.Split(mediaType, "/")
-	if len(parts) != 2 {
-		return ".bin"
-	}
-	return "." + parts[1]
 }
 
 func getVideoAspectRatio(filePath string) (string, error) {
